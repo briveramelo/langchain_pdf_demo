@@ -1,4 +1,37 @@
 from app.chat.redis import client
+import random
+
+
+def random_component_by_score(component_type, component_map):
+    # make sure component-type is llm retriever or memory
+    if component_type not in ["llm", "retriever", "memory"]:
+        raise ValueError("invalid component type")
+
+    # from redis, get the hash containing the sum total scores for the given type
+    values = client.hgetall(f"{component_type}_score_values")
+    # from redis, get the has containing the number of times each component has been voted on
+    counts = client.hgetall(f"{component_type}_score_counts")
+
+    # get all the valid component names from the component map
+    names = component_map.keys()
+    # loop over those valid names and use them to calculate the average score
+    # add average score to the dictionary
+    avg_scores = {}
+    for name in names:
+        score = int(values.get(name, 1))
+        count = int(counts.get(name, 1))
+        avg = score / count
+        avg_scores[name] = max(avg, 0.1)  # setting min of 0.1 to ensure a single down-vote doesn't exclude it
+
+    # do a weighted random selection
+    sum_scores = sum(avg_scores.values())
+    random_val = random.uniform(0, sum_scores)
+    cumulative = 0
+    for name, score in avg_scores.items():
+        cumulative += score
+        if random_val <= cumulative:
+            return name
+
 
 
 def score_conversation(
@@ -52,5 +85,17 @@ def get_scores():
             'memory': { 'persist_memory': [score7, score8] }
         }
     """
+    aggregate = {"llm": {}, "retriever": {}, "memory": {}}
 
-    pass
+    for component_type in aggregate.keys():
+        values = client.hgetall(f"{component_type}_score_values")
+        counts = client.hgetall(f"{component_type}_score_counts")
+        names = values.keys()
+
+        for name in names:
+            score = int(values.get(name, 1))
+            count = int(counts.get(name, 1))
+            avg = score / count
+            aggregate[component_type][name] = [avg]
+
+    return aggregate
