@@ -10,7 +10,7 @@ class TraceableChain:
                 metadata=self.metadata,
             )
         )
-        callbacks = kwargs.get("callbacks", [])
+        callbacks = kwargs.get("callbacks") or []
         callbacks.append(trace.getNewHandler())
         kwargs["callbacks"] = callbacks
         return super().__call__(*args, **kwargs)
