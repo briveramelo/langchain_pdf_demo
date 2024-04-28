@@ -1,4 +1,3 @@
-import random
 from langchain.chat_models import ChatOpenAI
 from app.chat.models import ChatArgs
 from app.chat.vector_stores import retriever_map
@@ -62,25 +61,6 @@ def build_chat(chat_args: ChatArgs):
         memory=memory_name,
     )
 
-    components = get_conversation_components(
-        chat_args.conversation_id
-    )
-    previous_retriever = components["retriever"]
-    if previous_retriever:
-        # this is not the first message of the conversation
-        build_retriever = retriever_map[previous_retriever]
-    else:
-        # this is first message of conversation
-        random_retriever_name = random.choice(list(retriever_map.keys()))
-        build_retriever = retriever_map[random_retriever_name]
-        set_conversation_components(
-            conversation_id=chat_args.conversation_id,
-            llm="",
-            memory="",
-            retriever=random_retriever_name
-        )
-
-    retriever = build_retriever(chat_args)
     condense_question_llm = ChatOpenAI(streaming=False)
 
     return StreamingConversationalRetrievalChain.from_llm(
@@ -88,4 +68,5 @@ def build_chat(chat_args: ChatArgs):
         condense_question_llm=condense_question_llm,
         memory=memory,
         retriever=retriever,
+        metadata=chat_args.metadata,
     )
